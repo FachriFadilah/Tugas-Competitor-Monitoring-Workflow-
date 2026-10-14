@@ -1,0 +1,368 @@
+{
+  "name": "Competitor Monitoring - Fachriiii",
+  "nodes": [
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "ef522aa6-b8ae-4a7c-b1e6-c6329d2d75e9",
+      "name": "When clicking ‘Execute workflow’"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://google.serper.dev/news",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-API-KEY",
+              "value": "6a1005ab38b623c62ecb106c7e26f81a5be44e6f"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "   {\n     \"q\": \"Tokopedia\",\n     \"gl\": \"id\",\n     \"hl\": \"id\",\n     \"num\": 20,\n     \"tbs\": \"qdr:w\"\n   }",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        224,
+        0
+      ],
+      "id": "0a0ff4e3-a8cd-43e6-9864-26540fc760c0",
+      "name": "Serper - Brand Utama"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://google.serper.dev/news",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-API-KEY",
+              "value": "6a1005ab38b623c62ecb106c7e26f81a5be44e6f"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "   {\n     \"q\": \"Shopee\",\n     \"gl\": \"id\",\n     \"hl\": \"id\",\n     \"num\": 20,\n     \"tbs\": \"qdr:w\"\n   }",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        224,
+        -160
+      ],
+      "id": "20d38639-7ffd-4f23-b43d-f6e5fe660b25",
+      "name": "Serper - Kompetitor 1"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://google.serper.dev/news",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-API-KEY",
+              "value": "6a1005ab38b623c62ecb106c7e26f81a5be44e6f"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "   {\n     \"q\": \"Lazada\",\n     \"gl\": \"id\",\n     \"hl\": \"id\",\n     \"num\": 20,\n     \"tbs\": \"qdr:w\"\n   }",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        224,
+        160
+      ],
+      "id": "7bced949-bc8b-4e39-b783-7f61e45827f3",
+      "name": "Serper - Kompetitor 2"
+    },
+    {
+      "parameters": {
+        "numberInputs": 3
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        560,
+        0
+      ],
+      "id": "a85e08bd-cf14-4937-a025-77cd4ac527fa",
+      "name": "Merge"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Daftar brand harus SAMA dengan nilai \"q\" di tiap node Serper\nconst brands = ['Tokopedia', 'Shopee', 'Lazada'];\n\n// Nama node harus SAMA PERSIS dengan nama di canvas\nconst nodeNames = [\n  'Serper - Brand Utama',\n  'Serper - Kompetitor 1',\n  'Serper - Kompetitor 2'\n];\n\nconst results = brands.map((brand, i) => {\n  const news = $(nodeNames[i]).first().json.news || [];\n\n  // Mention = berita yang judul/snippet-nya menyebut nama brand\n  const relevant = news.filter(n =>\n     (n.title || '').toLowerCase().includes(brand.toLowerCase())\n   );\n\n  return {\n    brand,\n    totalFetched: news.length,\n    mentions: relevant.length,\n    texts: relevant.map(n => `- ${n.title}. ${n.snippet}`).join('\\n'),\n    headlines: relevant.slice(0, 5).map(n => ({\n      title: n.title,\n      source: n.source,\n      link: n.link,\n      date: n.date\n    }))\n  };\n});\n\nconst total = results.reduce((sum, r) => sum + r.mentions, 0);\n\nresults.forEach(r => {\n  r.sov = total > 0 ? Number(((r.mentions / total) * 100).toFixed(1)) : 0;\n});\n\nreturn [{ json: { results, totalMentions: total } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        784,
+        0
+      ],
+      "id": "35a83d34-04c8-4feb-8c4a-79466156b7cb",
+      "name": "Hitung SoV"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Kamu adalah analis brand. Analisis kumpulan berita berikut untuk setiap brand.\nUntuk SETIAP brand berikan:\n- sentiment: \"Positif\" / \"Netral\" / \"Negatif\"\n- reputation_score: angka 1-10 (10 = reputasi sangat baik)\n- reason: alasan singkat 1-2 kalimat\nLalu tulis juga \"executive_summary\": ringkasan eksekutif 3-4 kalimat\nyang membandingkan ketiga brand dan memberi rekomendasi strategis.\n\nBalas HANYA dengan JSON valid tanpa markdown, format:\n{\"brands\":[{\"brand\":\"\",\"sentiment\":\"\",\"reputation_score\":0,\"reason\":\"\"}],\"executive_summary\":\"\"}\n\nDATA:\n{{ JSON.stringify($json.results.map(r => ({brand: r.brand, mentions: r.mentions, berita: r.texts}))) }}",
+        "batching": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.9,
+      "position": [
+        1008,
+        0
+      ],
+      "id": "1d37fc51-410e-4348-a95b-e1bfdb6fed51",
+      "name": "Analisis Sentimen AI"
+    },
+    {
+      "parameters": {
+        "model": "=nvidia/nemotron-3-ultra-550b-a55b:free",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [
+        944,
+        208
+      ],
+      "id": "d9f7c4a6-dceb-4cb0-b5db-3cb0c6483a71",
+      "name": "OpenRouter n8n-tugas5",
+      "credentials": {
+        "openRouterApi": {
+          "id": "HR9LnpHopiTR2chC",
+          "name": "OpenRouter account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Data SoV dari node \"Hitung SoV\"\nconst sov = $('Hitung SoV').first().json.results;\n\n// Ambil teks balasan AI (nama field bisa \"text\" atau \"output\")\nlet raw = $input.first().json.text || $input.first().json.output || '';\n\n// Ambil hanya bagian JSON dari \"{\" pertama sampai \"}\" terakhir\nconst start = raw.indexOf('{');\nconst end = raw.lastIndexOf('}');\nraw = raw.substring(start, end + 1);\nconst ai = JSON.parse(raw);\n\nconst tanggal = new Date().toLocaleDateString('id-ID', { dateStyle: 'long' });\n\n// Hilangkan tanda bintang markdown dari ringkasan\nconst ringkasan = (ai.executive_summary || '').replace(/\\*/g, '');\n\nconst rows = sov.map(r => {\n  const a = ai.brands.find(b => b.brand.toLowerCase() === r.brand.toLowerCase()) || {};\n  return `<tr>\n    <td><b>${r.brand}</b></td>\n    <td>${r.mentions}</td>\n    <td>${r.sov}%</td>\n    <td>${a.sentiment || '-'}</td>\n    <td>${a.reputation_score || '-'}/10</td>\n    <td>${a.reason || '-'}</td>\n  </tr>`;\n}).join('');\n\nconst html = `<!DOCTYPE html><html><head><meta charset=\"utf-8\">\n<style>\n  body{font-family:Arial,sans-serif;margin:40px;color:#222}\n  h1{color:#1a3c6e;border-bottom:3px solid #1a3c6e;padding-bottom:8px}\n  h2{color:#1a3c6e;margin-top:30px}\n  table{width:100%;border-collapse:collapse;margin-top:12px;font-size:13px}\n  th{background:#1a3c6e;color:#fff;padding:10px;text-align:left}\n  td{border:1px solid #ccc;padding:10px;vertical-align:top}\n  tr:nth-child(even){background:#f3f6fb}\n  .box{background:#eef3fa;padding:16px;border-left:5px solid #1a3c6e;line-height:1.6}\n  .foot{margin-top:30px;font-size:11px;color:#777}\n</style></head><body>\n<h1>Laporan Competitor Monitoring</h1>\n<p>Tanggal: ${tanggal} | Periode berita: 1 minggu terakhir</p>\n<h2>Ringkasan Eksekutif</h2>\n<div class=\"box\">${ringkasan}</div>\n<h2>Tabel Perbandingan</h2>\n<table>\n  <tr><th>Brand</th><th>Mention</th><th>Share of Voice</th><th>Sentimen</th><th>Skor Reputasi</th><th>Alasan</th></tr>\n  ${rows}\n</table>\n<p class=\"foot\">Dibuat otomatis dengan n8n, Serper API, dan AI.</p>\n</body></html>`;\n\nreturn [{ json: { html } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1376,
+        0
+      ],
+      "id": "83905a77-7c89-4c50-ae82-668a5bea92cd",
+      "name": "Susun HTML"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.pdfshift.io/v3/convert/pdf",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "source",
+              "value": "={{ $json.html }}"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        1600,
+        0
+      ],
+      "id": "f3125576-8788-4f70-9ff1-0d0d93564dd3",
+      "name": "PDFShift - Convert PDF",
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "J7uSezXvy1A91TR4",
+          "name": "Unnamed credential 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "sendDocument",
+        "chatId": "6811087250",
+        "binaryData": true,
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1824,
+        0
+      ],
+      "id": "103a254b-56a5-4db6-8560-87943e061a9e",
+      "name": "Kirim ke Telegram",
+      "webhookId": "d93910d8-2710-4946-8ddc-535562c419ea",
+      "credentials": {
+        "telegramApi": {
+          "id": "aDxLEgrWiYGYZqxN",
+          "name": "Telegram account 7"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "When clicking ‘Execute workflow’": {
+      "main": [
+        [
+          {
+            "node": "Serper - Brand Utama",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Serper - Kompetitor 1",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Serper - Kompetitor 2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Serper - Brand Utama": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Serper - Kompetitor 1": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Serper - Kompetitor 2": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "Hitung SoV",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Hitung SoV": {
+      "main": [
+        [
+          {
+            "node": "Analisis Sentimen AI",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenRouter n8n-tugas5": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Analisis Sentimen AI",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analisis Sentimen AI": {
+      "main": [
+        [
+          {
+            "node": "Susun HTML",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Susun HTML": {
+      "main": [
+        [
+          {
+            "node": "PDFShift - Convert PDF",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PDFShift - Convert PDF": {
+      "main": [
+        [
+          {
+            "node": "Kirim ke Telegram",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "365fd57e-f999-440d-9b8d-b1447165d558",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "dc96f10ae7dc95d3c138575ba243a0a167923dbcb524841d451aadf9135d5fb3"
+  },
+  "nodeGroups": [],
+  "id": "R09z8p4IJgESnC6A",
+  "tags": []
+}
